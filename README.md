@@ -7,19 +7,12 @@ buy fixed-price items via guest checkout.
 ## Works with
 
 This is a standard [Model Context Protocol](https://modelcontextprotocol.io/)
-server — nothing in it is tied to any single assistant. It works with any
-MCP-compatible client speaking streamable HTTP, including:
+server — nothing in it is tied to any single assistant. Run it yourself
+(below) and point any MCP-compatible client at `http://127.0.0.1:8000/mcp`:
 
-- **Meta Muse** — via the connector directory (the primary distribution target)
-- **Claude / Claude Code** (Anthropic)
-- **ChatGPT** (OpenAI)
+- **Meta Muse**, **Claude / Claude Code** (Anthropic), **ChatGPT** (OpenAI)
 - **Cursor**, **Windsurf**, **Cline**, and other MCP-capable coding assistants
 - Any custom agent built on an MCP SDK (Python, TypeScript, …)
-
-Any MCP client connects to the running server at
-`http://<host>:<port>/mcp`. No Meta review gate is needed for personal use;
-the same server doubles as the submission artifact for the Muse connector
-directory.
 
 ## Tools
 
@@ -63,6 +56,8 @@ Everything except auction bidding works with the application token alone
 1. **eBay developer account** (free, ~5 min, not scriptable — requires
    accepting the developer agreement as yourself):
    - Sign up at https://developer.ebay.com and verify your email.
+   - New accounts go through a review before keys work — allow at least one
+     business day.
    - Go to **My Keys** → create a keyset → note the **App ID** (client_id)
      and **Cert ID** (client_secret). Create both **Sandbox** and
      **Production** keysets.
@@ -73,29 +68,43 @@ Everything except auction bidding works with the application token alone
    cp .env.example .env   # then fill in EBAY_CLIENT_ID / EBAY_CLIENT_SECRET
    ```
    Start with `EBAY_ENV=sandbox` (test data, free, no real money moves).
-3. **Install & run:**
+3. **Install & run** (always start with `EBAY_ENV=sandbox` — test data, no
+   real money moves):
+
+   Local Python:
    ```bash
    python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
    .venv/bin/python -m ebay_mcp.server
    # listening on 127.0.0.1:8000 by default (EBAY_HOST / EBAY_PORT)
    ```
-4. **User consent for bidding** (only needed for `place_bid`): build the
-   consent URL with the RuName, open it in a browser, approve, and store the
-   returned tokens:
+
+   Or Docker (the image bakes in a `/healthz` liveness probe; the watchlist
+   lives in `/data`, so mount a volume to keep watches across restarts):
+   ```bash
+   cp .env.example .env   # then fill in your keys
+   docker build -t ebay-mcp .
+   docker run --env-file .env -p 8000:8000 -v ebay-data:/data ebay-mcp
+   ```
+4. **User consent for bidding** (only needed for `place_bid`): print the
+   consent URL, open it in a browser, approve, then exchange the returned
+   `?code=...` for tokens:
    ```bash
    .venv/bin/python - <<'EOF'
-   import os
    from ebay_mcp.config import get_config
-   from ebay_mcp.auth import build_authorize_url
-   print(build_authorize_url(get_config()))
+   from ebay_mcp.auth import build_authorize_url, exchange_code_for_tokens
+   config = get_config()
+   print(build_authorize_url(config))   # open this in a browser and approve
+   # then:
+   # tokens = exchange_code_for_tokens(config, code="<code from redirect>")
+   # print(tokens["access_token"], tokens["refresh_token"])
    EOF
-   # After approving, exchange the ?code=... for tokens and set
-   # EBAY_USER_ACCESS_TOKEN / EBAY_USER_REFRESH_TOKEN in .env
    ```
-5. **Connect from Muse:** give Muse the server URL
-   (`http://<host>:<port>/mcp`). Muse builds a streamable-HTTP MCP client on
-   its VM. eBay credentials stay in this server's environment — Muse never
-   sees them.
+   Set `EBAY_USER_ACCESS_TOKEN` / `EBAY_USER_REFRESH_TOKEN` in `.env` from the
+   exchange output. Everything except auction bidding works with the
+   application token alone (no browser step).
+5. **Connect a client:** point any MCP-compatible client at
+   `http://<host>:<port>/mcp`. eBay credentials stay in this server's
+   environment — the client never sees them.
 
 ## Running tests
 
@@ -109,7 +118,7 @@ The one live mutation test additionally requires `EBAY_RUN_LIVE_MUTATIONS=1`
 **and** `EBAY_ENV=sandbox`; it only opens a guest checkout session, never
 places an order.
 
-## Example prompts (for the connector submission form)
+## Example prompts
 
 1. "Find me a used ThinkPad X1 Carbon under $600 with free shipping."
 2. "Watch this auction for the vintage Rolex and alert me if it drops below $2,000."
@@ -153,3 +162,25 @@ Notes:
   server-side by design. There is also no REST Buy endpoint for Best Offer
   negotiation — `place_bid` covers auctions only.
 - Browse API default quota is 5,000 calls/day (free tier).
+
+## Troubleshooting
+
+- **Keys return auth errors right after signup:** new eBay developer accounts
+  are reviewed before keys activate (at least one business day). Sandbox and
+  production keysets are separate — approval for one does not imply the other.
+- **"Item not available" in sandbox:** sandbox listings are test data with
+  short lifespans. Search fresh (`search_listings`) rather than reusing item
+  IDs from an earlier session.
+- **`place_bid` fails but search works:** bidding needs the *user* token
+  (Authorization Code grant) with the `buy.offer.auction` scope — the
+  application token alone is not enough. Re-run Setup step 4.
+- **Watches disappear after a container restart:** the watchlist is a plain
+  JSON file at `EBAY_WATCHLIST_PATH`. In Docker it lives in `/data` — mount
+  a volume (see Setup step 3) or the file dies with the container.
+- **Guest checkout vs eBay account:** `buy_now` uses eBay's guest checkout —
+  no eBay buyer account is needed. The order confirmation email goes to the
+  address you supply at confirm time.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

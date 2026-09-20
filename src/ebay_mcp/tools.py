@@ -1,6 +1,6 @@
 """MCP tool implementations.
 
-APPROVAL CONTRACT (this is the safety contract surfaced to Muse reviewers):
+APPROVAL CONTRACT (surfaced to the user for approval before anything is spent):
 
 * Read-only tools — ``search_listings``, ``get_item_details``, ``watch_item``,
   ``list_watches``, ``remove_watch``, ``get_order_status`` — execute immediately.

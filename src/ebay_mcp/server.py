@@ -5,13 +5,16 @@ Run:
 (or: ebay-mcp, once installed)
 
 The server listens on EBAY_HOST:EBAY_PORT (defaults 127.0.0.1:8000).
-Muse connects to http(s)://<host>:<port>/mcp as a streamable-HTTP MCP server.
+Any MCP client connects to http(s)://<host>:<port>/mcp as a streamable-HTTP
+MCP server.
 """
 from __future__ import annotations
 
 from functools import lru_cache
 
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from . import tools as T
 from .auth import ApplicationTokenProvider
@@ -39,6 +42,12 @@ def _deps() -> tuple[EbayConfig, EbayClient, WatchlistStore]:
     client = EbayClient(config, token_provider=provider)
     store = WatchlistStore(config.watchlist_path)
     return config, client, store
+
+
+@mcp.custom_route("/healthz", methods=["GET"])
+async def healthz(request: Request) -> JSONResponse:
+    """Unauthenticated liveness probe for load balancers / health checks."""
+    return JSONResponse({"status": "ok", "service": "ebay-connector"})
 
 
 @mcp.tool()
