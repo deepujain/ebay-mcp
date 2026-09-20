@@ -1,12 +1,25 @@
 # eBay MCP Connector
 
-An MCP server (streamable HTTP) exposing eBay's **Buy APIs** as tools for
-Meta Muse: search listings, inspect items, watch for price drops, bid on
-auctions, and buy fixed-price items via guest checkout.
+An MCP server (streamable HTTP) exposing eBay's **Buy APIs** as tools:
+search listings, inspect items, watch for price drops, bid on auctions, and
+buy fixed-price items via guest checkout.
 
-Muse connects to the running server over streamable HTTP at
+## Works with
+
+This is a standard [Model Context Protocol](https://modelcontextprotocol.io/)
+server — nothing in it is tied to any single assistant. It works with any
+MCP-compatible client speaking streamable HTTP, including:
+
+- **Meta Muse** — via the connector directory (the primary distribution target)
+- **Claude / Claude Code** (Anthropic)
+- **ChatGPT** (OpenAI)
+- **Cursor**, **Windsurf**, **Cline**, and other MCP-capable coding assistants
+- Any custom agent built on an MCP SDK (Python, TypeScript, …)
+
+Any MCP client connects to the running server at
 `http://<host>:<port>/mcp`. No Meta review gate is needed for personal use;
-the same server doubles as the submission artifact for the connector directory.
+the same server doubles as the submission artifact for the Muse connector
+directory.
 
 ## Tools
 
